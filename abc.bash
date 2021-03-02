@@ -30,20 +30,27 @@ HEADERS=-I./src
 SOURCES=$(shell find src -name *.c)
 # object files names
 OBJECTS=$(SOURCES:src/%.c=bin/%.o)
+TESTS_OBJECTS=$(filter-out bin/main.o, $(OBJECTS))
 
 # main recipe
 $(BIN)/$(EXE): $(OBJECTS)
 \t$(CC) $(CFLAGS) $(OBJECTS) -g -o $@
     
-# compiles to object every source file in the source code directory 
+# compiles to object a source file in the source code directory 
 $(BIN)/%.o: src/%.c
+\tmkdir -p $(dir $@)
 \t$(CC) -c $(CFLAGS) $< -o $@
+
+# compiles to an executable a source file in the source directory, except for the main one
+$(BIN)/%.tst: $(TESTS_OBJECTS)
+\tmkdir -p $(dir $@)
+\t$(CC) $(CFLAGS) $(TESTS_OBJECTS) -o $@
 
 
 # phony in case a file is named clean ??
 .PHONY:clean
 clean:
-\trm bin/*
+\t[ $(BIN) != "/" ] && rm -rf $(BIN)/*
 '
 
 # Some config
@@ -100,6 +107,7 @@ abcnew() {
     echo $project_name > $project_name/$config_file
     # creates base source file
     # TODO: support library creation ?
+    # TODO: add example test file and unit test 
     echo "$mainfile_content" > $project_name/src/main.c
     # create Makefile
     echo -e "$makefile_content" > $project_name/Makefile
@@ -131,7 +139,7 @@ abcexists() {
 }
 
 
-# compiles the project
+# compiles the project, excluding tests
 abcbuild() {
     # test for Makefile existence, else exit
     if [[ ! -e Makefile ]]; then
@@ -169,18 +177,102 @@ abcrun() {
     ./bin/main
 }
 
+# runs tests in files
+# TODO: add code to handle unit tests, i.e tests in #ifdef TEST ... #endif blocks
+abctest() {
+    # total number of tests
+    ntest=0
+    # number of tests passed 
+    passed=0
+
+    # unit tests in files
+    if [[ ! -e Makefile ]]; then
+        error "Makefile not found"
+        return
+    fi
+    
+    potential_tests=$(find src -name '*.c')
+    # remove main.c file
+    # NOTE: there cannot be tests in main.c
+    potential_tests=${potential_tests[@]/src\/main.c/}
+
+    # regex that matches function names (with parentheses) between #ifdef TEST .. #endif markers
+    # NOTE: One test == One #ifdef TEST #endif block !!
+    regex_test_fns='(#ifdef TEST){1}((\s|\r\n|\r|\n)*?(int (\w+)\(\)){1}(\s|.|\r\n|\r|\n)*?)(#endif){1}'
+    for potential_file in $potential_tests; do 
+        # remove src/ part of the directory
+        potential_file=${potential_file#*/}
+        # get every functions within #ifdef TEST #endif blocks
+        test_fns=$(rg -UIN "$regex_test_fns" -r '$5' src/$potential_file)
+        if [[ -n $test_fns ]]; then
+            # save current file to a backup, to be restored later
+            cp src/$potential_file src/$potential_file.abc_back
+            # remove file extension
+            potential_file=${potential_file%.c}
+            ntest_here=$(echo "$test_fns" | wc -l)
+            (( ntest += ntest_here ))
+
+            # building the main function
+            echo "#ifdef TEST
+#include<stdio.h>
+#define RED \"\\x1b[31m\"
+#define GREEN \"\\x1b[32m\"
+#define RESET \"\\x1b[0m\"
+int main() {
+    unsigned long passed = 0;
+    printf(\"\\nrunning $ntest_here tests in $potential_file\\n\");
+    " >> src/$potential_file.c
+
+            echo "$test_fns" | while read function_name; do 
+                echo "
+    printf(\"test $function_name ... \");
+    if ($function_name()) {
+        printf(GREEN\"ok\"RESET\"\n\");
+        passed++;
+    } else {
+        printf(RED\"FAILED\"RESET\"\n\");
+    }
+    " >> src/$potential_file.c 
+            done 
+            echo -e "return passed;\n}\n#endif" >> src/$potential_file.c
+
+            # main function is built, now compile it
+            make -s bin/$potential_file.tst CFLAGS+="-D TEST"
+
+            # it is compiled, run tests in that file
+            ./bin/$potential_file.tst
+
+            (( passed += $? ))
+
+            # TODO: make sure test runs are contiguous with the tests in tests/
+
+        
+            # restoring code and removing object file to not interfere with the rest of
+            # the program
+            mv src/$potential_file.c.abc_back src/$potential_file.c
+            rm bin/$potential_file.o
+        fi 
+    done 
+
+    # print results
+    echo -ne "\ntests results:"
+    if [[ $passed -lt $ntest ]]; then 
+        echo -n "$(tput setaf 1) FAILED$(tput sgr0)"
+    else
+        echo -n "$(tput setaf 2) ok$(tput sgr0)"
+    fi
+    echo ". $passed passed; $(( ntest - passed )) failed."
+}
+
 # displays the usage
 abchelp() {
-    echo -e "abc v0.1\nUsage : abc [new|init|build|run]"
+    echo -e "abc v0.1\nUsage : abc [new|init|build|run|test]"
 }
 
 # Parse args
 # TODO: Add a `cargo check` style command
 case $1 in
-    "new") 
-        shift; 
-        abcnew $@
-        ;;
+    "new") shift; abcnew $@ ;;
     "init")
         abcinit
         ;;
@@ -197,6 +289,11 @@ case $1 in
         abcexists
         shift
         abcrun
+        ;;
+    "test" | "t" )
+        abcexists
+        shift
+        abctest $@
         ;;
     "help" | "-h" )
         abchelp

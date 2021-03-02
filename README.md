@@ -13,7 +13,7 @@ Note: ripgrep instead of grep for faster parsing with tests.
 
 ## Installation
 
-If `.local/bin/` is in your $PATH :
+If `.local/bin/` is in your `$PATH` :
 ```bash 
 wget "https://raw.githubusercontent.com/martin-fl/abc/main/abc.bash" -O .local/bin/abc
 chmod +x .local/bin/abc
@@ -25,11 +25,13 @@ chmod +x .local/bin/abc
 * Initialize a project within a directory with `abc init`
 * Compile your code with `abc build` or `abc b`
 * Execute your code with `abc run` or `abc r`
+* Run unit tests with `abc test` or `abc t`
 * Other commands: `abc help` 
 
 ## The abc-project architecture:
 
 An abc-project has the following structure:
+
 ```
 project
 ├── .abc_config
@@ -38,6 +40,7 @@ project
 └── src
    └── main.c
 ```
+
 Every `.c` and `.h` file needs to live in the `src/` directory (there can be subdirectories in `src/`). The `main.c` contains the `main()` function and needs to be present, otherwise it will not work. The `bin/` directory will mimic the`src/` directory's architecture but with object files and executables.
 
 ## Writing tests with abc: 

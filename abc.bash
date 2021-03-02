@@ -1,4 +1,4 @@
-#!/usr/bin/bash
+#!/usr/bin/env bash
 #-*- coding: utf-8 -*-
 #----------------------------------------------
 # very basic cargo-like utility for C projects
@@ -17,7 +17,8 @@ int main() {
 makefile_content='# Compiler
 CC=gcc
 # Compiler flags
-CFLAGS=-lm
+CFLAGS=-g
+LDLIBS=-lm
 # Final executable name 
 EXE=main
 # source code directory
@@ -34,17 +35,17 @@ TESTS_OBJECTS=$(filter-out bin/main.o, $(OBJECTS))
 
 # main recipe
 $(BIN)/$(EXE): $(OBJECTS)
-\t$(CC) $(CFLAGS) $(OBJECTS) -g -o $@
+\t$(CC) $(CFLAGS) $(OBJECTS) -o $@ $(LDLIBS)
     
 # compiles to object a source file in the source code directory 
 $(BIN)/%.o: src/%.c
 \tmkdir -p $(dir $@)
-\t$(CC) -c $(CFLAGS) $< -o $@
+\t$(CC) -c $(CFLAGS) $< -o $@ $(LDLIBS)
 
 # compiles to an executable a source file in the source directory, except for the main one
 $(BIN)/%.tst: $(TESTS_OBJECTS)
 \tmkdir -p $(dir $@)
-\t$(CC) $(CFLAGS) $(TESTS_OBJECTS) -o $@
+\t$(CC) $(CFLAGS) $(TESTS_OBJECTS) -o $@ $(LDLIBS)
 
 
 # phony in case a file is named clean ??
@@ -55,7 +56,6 @@ clean:
 
 # Some config
 config_file=".abc_config"
-calling_dir=$(pwd)
 
 if [[ -e $config_file ]]; then
     config=$(cat $config_file)
@@ -114,7 +114,7 @@ abcnew() {
     print_step "Created $project_name package"
 }
 
-# intialize a new abc within a directory
+# intialize a new abcproject within a directory
 abcinit() {
     # check if a config file exists, else continue
     if [[ -e $config_file ]]; then
@@ -178,7 +178,6 @@ abcrun() {
 }
 
 # runs tests in files
-# TODO: add code to handle unit tests, i.e tests in #ifdef TEST ... #endif blocks
 abctest() {
     # total number of tests
     ntest=0
@@ -241,12 +240,8 @@ int main() {
 
             # it is compiled, run tests in that file
             ./bin/$potential_file.tst
-
             (( passed += $? ))
 
-            # TODO: make sure test runs are contiguous with the tests in tests/
-
-        
             # restoring code and removing object file to not interfere with the rest of
             # the program
             mv src/$potential_file.c.abc_back src/$potential_file.c
@@ -272,14 +267,17 @@ abchelp() {
 # Parse args
 # TODO: Add a `cargo check` style command
 case $1 in
-    "new") shift; abcnew $@ ;;
+    "new") 
+        shift; 
+        abcnew "$@" 
+        ;;
     "init")
         abcinit
         ;;
     "build" | "b" )
         abcexists
         shift
-        abcbuild $@
+        abcbuild "$@"
         ;;
     "clean")
         abcexists
@@ -293,7 +291,7 @@ case $1 in
     "test" | "t" )
         abcexists
         shift
-        abctest $@
+        abctest "$@"
         ;;
     "help" | "-h" )
         abchelp

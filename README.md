@@ -11,6 +11,14 @@ A basic cargo-like utility for managing your small-to-medium sized C projects.
 
 Note: ripgrep instead of grep for faster parsing with tests.
 
+## Installation
+
+If `.local/bin/` is in your $PATH :
+```bash 
+wget "https://raw.githubusercontent.com/martin-fl/abc/main/abc.bash" -O .local/bin/abc
+chmod +x .local/bin/abc
+```
+
 ## How to use the command:
 
 * Create a new project with `abc new <project_name>`

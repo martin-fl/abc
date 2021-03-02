@@ -45,7 +45,8 @@ Every `.c` and `.h` file needs to live in the `src/` directory (there can be sub
 
 ## Writing tests with abc: 
 
-abc currently supports unit tests in `.c` files. Here is what a test in the `src/bar/foo.c` file would look like :
+abc currently supports unit tests in `.c` files. Tests are functions that will only be compiled and executed when the `abc test` command is invoked.
+Here is what a test in the `src/bar/foo.c` file would look like :
 ```c
 // src/bar/foo.c
 #include "foo.h"

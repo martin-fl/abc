@@ -1,6 +1,6 @@
 # abc
 
-A basic cargo-like utility for managing your small-to-medium sized C projects.
+A basic cargo-like utility for managing your small-to-medium size C projects.
 
 ## Dependencies:
 
@@ -54,5 +54,5 @@ int test_two_plus_two() {
 ```
 More generally, a test in an integer function with no arguments, which returns 0 if the test fails, anything else if it is successfull. Every test function needs to be surrounded by `#ifdef TEST` and `endif`. Two test functions __cannot__ share the same `TEST` block.
 
-Note: tests in the src/main.c file will __not__ be tested.
+Note: tests in the `src/main.c` file will __not__ be tested.
 

@@ -1,6 +1,15 @@
 # abc
 
-A basic cargo-like utility for managing your small-to-medium sized C projects 
+A basic cargo-like utility for managing your small-to-medium sized C projects.
+
+## Dependencies:
+
+* make
+* gcc
+* tput
+* ripgrep
+
+Note: ripgrep instead of grep for faster parsing with tests.
 
 ## How to use the command:
 

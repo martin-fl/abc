@@ -11,7 +11,7 @@ A basic cargo-like utility for managing your small-to-medium size C projects.
 
 Note: ripgrep instead of grep for faster parsing with tests.
 
-## Installation
+## Installation:
 
 If `.local/bin/` is in your `$PATH` :
 ```bash 
@@ -56,7 +56,7 @@ int two_plus_two() {
         return 2 + 2;
 }
 
-#ifdef TEST
+#ifdef ABC_TEST
 int test_two_plus_two() {
     int x = two_plus_two();
     return (x == 4);
@@ -64,7 +64,11 @@ int test_two_plus_two() {
 #endif
 
 ```
-More generally, a test in an integer function with no arguments, which returns 0 if the test fails, anything else if it is successfull. Every test function needs to be surrounded by `#ifdef TEST` and `endif`. Two test functions __cannot__ share the same `TEST` block.
+More generally, a test in an integer function with no arguments, which returns 0 if the test fails, anything else if it is successfull. 
 
-Note: tests in the `src/main.c` file will __not__ be tested.
+### Limitations/rules:
+* Every test function needs to be surrounded by `#ifdef ABC_TEST` and `endif`. Two test functions __cannot__ share the same `ABC_TEST` block.
+* Tests in the `src/main.c` file will __not__ be run.
+* Right now, `#include`s required for the tests need to live outside of the `ABC_TEST` bloc, else the test will not be parsed (i.e, not be seen as a test).
+* If some imported libraries have `#ifdef ABC_TEST ... #endif` structures in them, they __will__ be parsed and matching tests functions will be run.
 

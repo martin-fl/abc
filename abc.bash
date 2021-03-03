@@ -17,7 +17,7 @@ int main() {
 makefile_content='# Compiler
 CC=gcc
 # Compiler flags
-CFLAGS=-g
+CFLAGS=-g -Wall -Wextra
 LDLIBS=-lm
 # Final executable name 
 EXE=main
@@ -28,7 +28,7 @@ BIN=./bin
 # possible directories where header files could be
 HEADERS=-I./src
 # c files to compile 
-SOURCES=$(shell find src -name *.c)
+SOURCES=$(shell find src -name "*".c)
 # object files names
 OBJECTS=$(SOURCES:src/%.c=bin/%.o)
 TESTS_OBJECTS=$(filter-out bin/main.o, $(OBJECTS))
@@ -51,10 +51,11 @@ $(BIN)/%.tst: $(TESTS_OBJECTS)
 # phony in case a file is named clean ??
 .PHONY:clean
 clean:
-\t[ $(BIN) != "/" ] && rm -rf $(BIN)/*
+\t[ -n $(BIN) ] && rm -rf $(BIN)/*
 '
 
 # Some config
+# TODO: Make a better config file, maybe use toml ?
 config_file=".abc_config"
 
 if [[ -e $config_file ]]; then
@@ -76,7 +77,7 @@ print_step() {
     rest=${1#* }
     if [[ ${#step_name} -le 12 ]]; then
         num_space=$((12-${#step_name}))
-        for ((i=1;i <= $num_space;i++)); do
+        for ((i=1;i <= num_space;i++)); do
             printf " "
         done
         echo "$(tput setaf 2)$(tput bold)$step_name$(tput sgr0) $rest"
@@ -87,53 +88,42 @@ print_step() {
 }
 
 # creates a new abc project
+# TODO: support library creation ?
 abcnew() {
-    # test if project name was given, else exit 
     if [[ -z $1 ]]; then
         error "no project name given"
         return 101
     fi
     project_name=$1
-    # test if a file/directory already has the same name, else continue
     if [[ -e $project_name ]]; then
         error "file $project_name already exists"
         return 101
     fi
 
-    # creates project structure
-    mkdir $project_name/{,src,bin}
-    # create light config file 
-    # TODO: Make a bette config file, maybe use toml ?
-    echo $project_name > $project_name/$config_file
-    # creates base source file
-    # TODO: support library creation ?
-    # TODO: add example test file and unit test 
-    echo "$mainfile_content" > $project_name/src/main.c
-    # create Makefile
-    echo -e "$makefile_content" > $project_name/Makefile
+    mkdir "$project_name"/{,src,bin}
+    printf "%s" "$project_name" > "$project_name"/$config_file
+    printf "%s" "$mainfile_content" > "$project_name"/src/main.c
+    echo -e "$makefile_content" > "$project_name"/Makefile
     print_step "Created $project_name package"
 }
 
-# intialize a new abcproject within a directory
+# intializes a new abcproject within a directory
 abcinit() {
-    # check if a config file exists, else continue
     if [[ -e $config_file ]]; then
         error "project already initialized"
         return
     fi
-    # get current directory name, set as project name
-    init_dir=$(pwd)
-    echo ${init_dir##*/} > $config_file
 
-    # test for structure existence and create missing files
-    [[ ! -e Makefile ]] && printf "$makefile_content" > Makefile
-    [[ ! -e src ]] && mkdir src && printf "$mainfile_content" > src/main.c
+    echo "${PWD##*/}" > $config_file
+
+    [[ ! -e Makefile ]] && printf "%s" "$makefile_content" > Makefile
+    [[ ! -e src ]] && mkdir src && echo -e "$mainfile_content" > src/main.c
     [[ ! -e bin ]] && mkdir bin 
 
     print_step "Created $project_name package"
 }
 
-# check if project exists
+# checks if project exists
 abcexists() {
     [[ ! -e $config_file ]] && error "project doesn't exist" && exit
 }
@@ -141,7 +131,6 @@ abcexists() {
 
 # compiles the project, excluding tests
 abcbuild() {
-    # test for Makefile existence, else exit
     if [[ ! -e Makefile ]]; then
         error "Makefile not found"
         return
@@ -150,23 +139,17 @@ abcbuild() {
         return
     fi
 
-    print_step "Compiling $project_name ($(pwd))"
+    print_step "Compiling $project_name ($PWD)"
 
-    # if recipe name precised, compile it else compile main recipe
-    if [[ -n $1 ]]; then
-        make -s $1
-    else
-        make -s $build_recipe 
+    if make -s "${1:-$build_recipe}"; then     
+        print_step "Finished building $project_name"
     fi
-    
-    # test if compilation was successful, to display the message
-    [[ $? -eq 0 ]] && print_step "Finished building $project_name"
 }
 
-# clean bin/ directory if not empty
+# cleans bin/ directory if not empty
 abcclean() {
-    print_step "Cleaning $project_name/bin/ ($(pwd))"
-    [[ -n $(ls bin/) ]] && make -s $clean_recipe && print_step "Finished cleaning" && return
+    print_step "Cleaning $project_name/bin/ ($PWD)"
+    [[ -n $(ls bin/) ]] && make -s "$clean_recipe" && print_step "Finished cleaning" && return
     print_step "Finished cleaning"
 }
 
@@ -184,7 +167,6 @@ abctest() {
     # number of tests passed 
     passed=0
 
-    # unit tests in files
     if [[ ! -e Makefile ]]; then
         error "Makefile not found"
         return
@@ -193,63 +175,60 @@ abctest() {
     potential_tests=$(find src -name '*.c')
     # remove main.c file
     # NOTE: there cannot be tests in main.c
-    potential_tests=${potential_tests[@]/src\/main.c/}
+    potential_tests=${potential_tests/src\/main.c/}
 
-    # regex that matches function names (with parentheses) between #ifdef TEST .. #endif markers
-    # NOTE: One test == One #ifdef TEST #endif block !!
-    regex_test_fns='(#ifdef TEST){1}((\s|\r\n|\r|\n)*?(int (\w+)\(\)){1}(\s|.|\r\n|\r|\n)*?)(#endif){1}'
+    # regex that matches function names between #ifdef ABC_TEST .. #endif markers
+    # NOTE: One test == One #ifdef ABC_TEST #endif block !!
+    regex_test_fns='(#ifdef ABC_TEST){1}((\s|\r\n|\r|\n)*?(int (\w+)\(\)){1}(\s|.|\r\n|\r|\n)*?)(#endif){1}'
     for potential_file in $potential_tests; do 
-        # remove src/ part of the directory
-        potential_file=${potential_file#*/}
-        # get every functions within #ifdef TEST #endif blocks
-        test_fns=$(rg -UIN "$regex_test_fns" -r '$5' src/$potential_file)
+        potential_file=${potential_file#src/}
+        # get every functions within #ifdef ABC_TEST #endif blocks
+        test_fns=$(rg -UIN "$regex_test_fns" -r '$5' src/"$potential_file")
+
         if [[ -n $test_fns ]]; then
             # save current file to a backup, to be restored later
-            cp src/$potential_file src/$potential_file.abc_back
-            # remove file extension
+            cp src/"$potential_file" src/"$potential_file".abc_back
+
             potential_file=${potential_file%.c}
             ntest_here=$(echo "$test_fns" | wc -l)
             (( ntest += ntest_here ))
 
             # building the main function
-            echo "#ifdef TEST
+            echo "
 #include<stdio.h>
+#ifdef ABC_TEST
 #define RED \"\\x1b[31m\"
 #define GREEN \"\\x1b[32m\"
 #define RESET \"\\x1b[0m\"
 int main() {
     unsigned long passed = 0;
     printf(\"\\nrunning $ntest_here tests in $potential_file\\n\");
-    " >> src/$potential_file.c
+    " >> src/"$potential_file".c
 
             echo "$test_fns" | while read function_name; do 
                 echo "
     printf(\"test $function_name ... \");
     if ($function_name()) {
-        printf(GREEN\"ok\"RESET\"\n\");
+        printf(GREEN\"ok\"RESET\"\\n\");
         passed++;
     } else {
-        printf(RED\"FAILED\"RESET\"\n\");
+        printf(RED\"FAILED\"RESET\"\\n\");
     }
-    " >> src/$potential_file.c 
+    " >> src/"$potential_file".c 
             done 
-            echo -e "return passed;\n}\n#endif" >> src/$potential_file.c
+            echo -e "return passed;\n}\n#endif" >> src/"$potential_file".c
 
-            # main function is built, now compile it
-            make -s bin/$potential_file.tst CFLAGS+="-D TEST"
+            make -s bin/"$potential_file".tst CFLAGS+="-D ABC_TEST"
 
-            # it is compiled, run tests in that file
-            ./bin/$potential_file.tst
+            ./bin/"$potential_file".tst
             (( passed += $? ))
 
-            # restoring code and removing object file to not interfere with the rest of
-            # the program
-            mv src/$potential_file.c.abc_back src/$potential_file.c
-            rm bin/$potential_file.o
+            # restoring code and removing object file to not interfere with the rest of the program
+            mv src/"$potential_file".c.abc_back src/"$potential_file".c
+            rm bin/"$potential_file".o
         fi 
     done 
 
-    # print results
     echo -ne "\ntests results:"
     if [[ $passed -lt $ntest ]]; then 
         echo -n "$(tput setaf 1) FAILED$(tput sgr0)"
@@ -264,7 +243,7 @@ abchelp() {
     echo -e "abc v0.1\nUsage : abc [new|init|build|run|test]"
 }
 
-# Parse args
+# Parses args
 # TODO: Add a `cargo check` style command
 case $1 in
     "new") 

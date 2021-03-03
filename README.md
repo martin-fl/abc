@@ -15,7 +15,7 @@ Note: ripgrep instead of grep for faster parsing with tests.
 
 If `.local/bin/` is in your `$PATH` :
 ```bash 
-wget "https://raw.githubusercontent.com/martin-fl/abc/main/abc.bash" -O .local/bin/abc
+wget "https://raw.githubusercontent.com/martin-fl/abc/main/abc" -O .local/bin/abc
 chmod +x .local/bin/abc
 ```
 

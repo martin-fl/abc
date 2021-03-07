@@ -1,20 +1,23 @@
 #!/usr/bin/env bash
 #-*- coding: utf-8 -*-
 #----------------------------------------------
-# very basic cargo-like utility for C projects
+# basic cargo-like utility for C projects
 # written by Martin Fl. 
+# MIT Licence
 #----------------------------------------------
 
 # initial content in src/main.c
-mainfile_content='#include <stdio.h>
+readonly mainfile_content='#include <stdio.h>
 
 int main() {
     printf("Hello world!\n");
     return 0;
-}'
+}
+'
 
 # initial content in Makefile (shouldn't need to be changed for small-medium project)
-makefile_content='# Compiler
+# shellcheck disable=SC2016
+readonly makefile_content='# Compiler
 CC=gcc
 # Compiler flags
 CFLAGS=-g -Wall -Wextra
@@ -56,27 +59,28 @@ clean:
 
 # Some config
 # TODO: Make a better config file, maybe use toml ?
-config_file=".abc_config"
+readonly config_file=".abc_config"
 
 if [[ -e $config_file ]]; then
-    config=$(cat $config_file)
-    project_name=${config[0]}
+    readonly config=$(cat $config_file)
+    declare project_name=$config
+    # possible other variables if config_file is extended
 fi
 
-build_recipe="bin/main"
-clean_recipe="clean"
+readonly build_recipe="bin/main" clean_recipe="clean"
 
 # convenience error function
+# TODO: add correct exit codes in code
 error() {
     echo "$(tput setaf 1)$(tput bold)error$(tput sgr0): $1"
 }
 
 # convenience step printing function
 print_step() {
-    step_name=${1%% *}
-    rest=${1#* }
+    local -r step_name=${1%% *} rest=${1#* }
+
     if [[ ${#step_name} -le 12 ]]; then
-        num_space=$((12-${#step_name}))
+        local -r num_space=$((12-${#step_name}))
         for ((i=1;i <= num_space;i++)); do
             printf " "
         done
@@ -92,12 +96,12 @@ print_step() {
 abcnew() {
     if [[ -z $1 ]]; then
         error "no project name given"
-        return 101
+        return 
     fi
     project_name=$1
     if [[ -e $project_name ]]; then
         error "file $project_name already exists"
-        return 101
+        return
     fi
 
     mkdir "$project_name"/{,src,bin}
@@ -116,7 +120,7 @@ abcinit() {
 
     echo "${PWD##*/}" > $config_file
 
-    [[ ! -e Makefile ]] && printf "%s" "$makefile_content" > Makefile
+    [[ ! -e Makefile ]] && printf '%s' "$makefile_content" > Makefile
     [[ ! -e src ]] && mkdir src && echo -e "$mainfile_content" > src/main.c
     [[ ! -e bin ]] && mkdir bin 
 
@@ -125,7 +129,7 @@ abcinit() {
 
 # checks if project exists
 abcexists() {
-    [[ ! -e $config_file ]] && error "project doesn't exist" && exit
+    [[ ! -e $config_file ]] && error "abc project doesn't exist" && exit
 }
 
 
@@ -141,6 +145,7 @@ abcbuild() {
 
     print_step "Compiling $project_name ($PWD)"
 
+    # TODO: Maybe add better error message when a recipe is not found ?
     if make -s "${1:-$build_recipe}"; then     
         print_step "Finished building $project_name"
     fi
@@ -162,10 +167,8 @@ abcrun() {
 
 # runs tests in files
 abctest() {
-    # total number of tests
-    ntest=0
-    # number of tests passed 
-    passed=0
+    local ntest=0 passed=0 potential_tests potential_file test_fns ntest_here
+    local -r regex_test_fns='(#ifdef ABC_TEST){1}((\s|\r\n|\r|\n)*?(int (\w+)\(\)){1}(\s|.|\r\n|\r|\n)*?)(#endif){1}'
 
     if [[ ! -e Makefile ]]; then
         error "Makefile not found"
@@ -179,10 +182,10 @@ abctest() {
 
     # regex that matches function names between #ifdef ABC_TEST .. #endif markers
     # NOTE: One test == One #ifdef ABC_TEST #endif block !!
-    regex_test_fns='(#ifdef ABC_TEST){1}((\s|\r\n|\r|\n)*?(int (\w+)\(\)){1}(\s|.|\r\n|\r|\n)*?)(#endif){1}'
     for potential_file in $potential_tests; do 
         potential_file=${potential_file#src/}
         # get every functions within #ifdef ABC_TEST #endif blocks
+        # shellcheck disable=SC2016
         test_fns=$(rg -UIN "$regex_test_fns" -r '$5' src/"$potential_file")
 
         if [[ -n $test_fns ]]; then
@@ -194,29 +197,33 @@ abctest() {
             (( ntest += ntest_here ))
 
             # building the main function
-            echo "
-#include<stdio.h>
-#ifdef ABC_TEST
-#define RED \"\\x1b[31m\"
-#define GREEN \"\\x1b[32m\"
-#define RESET \"\\x1b[0m\"
-int main() {
-    unsigned long passed = 0;
-    printf(\"\\nrunning $ntest_here tests in $potential_file\\n\");
-    " >> src/"$potential_file".c
+            {
+                printf '#include <stdio.h>\n'
+                printf '#ifdef ABC_TEST\n' 
+                printf '#define RED "%s"\n' "\x1b[31m"
+                printf '#define GREEN "%s"\n' "\x1b[32m"
+                printf '#define RESET "%s"\n' "\x1b[0m"
+                printf 'int main() {\n'
+                printf '    unsigned long passed = 0;\n'
+                printf '    printf("%srunning %s tests in %s%s");\n' "\n" "$ntest_here" "$potential_file" "\n"
+            } >> src/"$potential_file".c
 
+            # shellcheck disable=SC2162
             echo "$test_fns" | while read function_name; do 
-                echo "
-    printf(\"test $function_name ... \");
-    if ($function_name()) {
-        printf(GREEN\"ok\"RESET\"\\n\");
-        passed++;
-    } else {
-        printf(RED\"FAILED\"RESET\"\\n\");
-    }
-    " >> src/"$potential_file".c 
+                # codegen for each test function
+                {
+                    printf '    printf("test %s ... ");\n' "$function_name"
+                    printf '    if (%s()) {\n' "$function_name"
+                    printf '        printf(GREEN"ok"RESET"%s");\n' "\n"
+                    printf '        passed++;\n'
+                    printf '    } else {\n'
+                    printf '        printf(RED"FAILED"RESET\"%s");\n' "\n"
+                    printf '    }\n'
+                    printf '\n'
+                } >> src/"$potential_file".c
             done 
-            echo -e "return passed;\n}\n#endif" >> src/"$potential_file".c
+
+            printf 'return passed;\n}\n#endif' >> src/"$potential_file".c
 
             make -s bin/"$potential_file".tst CFLAGS+="-D ABC_TEST"
 
@@ -247,7 +254,7 @@ abchelp() {
 # TODO: Add a `cargo check` style command
 case $1 in
     "new") 
-        shift; 
+        shift
         abcnew "$@" 
         ;;
     "init")
@@ -272,10 +279,11 @@ case $1 in
         shift
         abctest "$@"
         ;;
-    "help" | "-h" )
+    "help" | "-h" | "--help")
         abchelp
         ;;
     *)
         echo "Invalid command"
+        abchelp
         ;;
 esac

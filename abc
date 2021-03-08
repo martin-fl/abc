@@ -45,11 +45,13 @@ $(BIN)/%.o: src/%.c
 \tmkdir -p $(dir $@)
 \t$(CC) -c $(CFLAGS) $< -o $@ $(LDLIBS)
 
+# shorcut to add compilation flags
+obj: $(OBJECTS)
+
 # compiles to an executable a source file in the source directory, except for the main one
 $(BIN)/%.tst: $(TESTS_OBJECTS)
 \tmkdir -p $(dir $@)
 \t$(CC) $(CFLAGS) $(TESTS_OBJECTS) -o $@ $(LDLIBS)
-
 
 # phony in case a file is named clean ??
 .PHONY:clean
@@ -67,7 +69,7 @@ if [[ -e $config_file ]]; then
     # possible other variables if config_file is extended
 fi
 
-readonly build_recipe="bin/main" clean_recipe="clean"
+readonly build_recipe="bin/main" clean_recipe="clean" objects_recipe="obj"
 
 # convenience error function
 # TODO: add correct exit codes in code
@@ -151,6 +153,20 @@ abcbuild() {
     fi
 }
 
+# checks program to see if it compiles, but doesn't compile
+abccheck() {
+    if [[ ! -e Makefile ]]; then
+        error "Makefile not found"
+        return
+    fi
+
+    print_step "Checking $project_name ($PWD)"
+
+    if make -s "${1:-$objects_recipe}" CFLAGS+="-fsyntax-only"; then     
+        print_step "Finished checking $project_name"
+    fi
+}
+
 # cleans bin/ directory if not empty
 abcclean() {
     print_step "Cleaning $project_name/bin/ ($PWD)"
@@ -168,7 +184,7 @@ abcrun() {
 # runs tests in files
 abctest() {
     local ntest=0 passed=0 potential_tests potential_file test_fns ntest_here
-    local -r regex_test_fns='(#ifdef ABC_TEST){1}((\s|\r\n|\r|\n)*?(int (\w+)\(\)){1}(\s|.|\r\n|\r|\n)*?)(#endif){1}'
+    local -r regex_test_fns='(#ifdef TEST){1}((\s|\r\n|\r|\n)*?(int (\w+)\(\)){1}(\s|.|\r\n|\r|\n)*?)(#endif){1}'
 
     if [[ ! -e Makefile ]]; then
         error "Makefile not found"
@@ -180,11 +196,11 @@ abctest() {
     # NOTE: there cannot be tests in main.c
     potential_tests=${potential_tests/src\/main.c/}
 
-    # regex that matches function names between #ifdef ABC_TEST .. #endif markers
-    # NOTE: One test == One #ifdef ABC_TEST #endif block !!
+    # regex that matches function names between #ifdef TEST .. #endif markers
+    # NOTE: One test == One #ifdef TEST #endif block !!
     for potential_file in $potential_tests; do 
         potential_file=${potential_file#src/}
-        # get every functions within #ifdef ABC_TEST #endif blocks
+        # get every functions within #ifdef TEST #endif blocks
         # shellcheck disable=SC2016
         test_fns=$(rg -UIN "$regex_test_fns" -r '$5' src/"$potential_file")
 
@@ -199,7 +215,7 @@ abctest() {
             # building the main function
             {
                 printf '#include <stdio.h>\n'
-                printf '#ifdef ABC_TEST\n' 
+                printf '#ifdef TEST\n' 
                 printf '#define RED "%s"\n' "\x1b[31m"
                 printf '#define GREEN "%s"\n' "\x1b[32m"
                 printf '#define RESET "%s"\n' "\x1b[0m"
@@ -225,7 +241,7 @@ abctest() {
 
             printf 'return passed;\n}\n#endif' >> src/"$potential_file".c
 
-            make -s bin/"$potential_file".tst CFLAGS+="-D ABC_TEST"
+            make -s bin/"$potential_file".tst CFLAGS+="-D TEST"
 
             ./bin/"$potential_file".tst
             (( passed += $? ))
@@ -260,10 +276,15 @@ case $1 in
     "init")
         abcinit
         ;;
-    "build" | "b" )
+    "build" | "b")
         abcexists
         shift
         abcbuild "$@"
+        ;;
+    "check" | "c")
+        abcexists
+        shift
+        abccheck "$@"
         ;;
     "clean")
         abcexists

@@ -263,7 +263,7 @@ abctest() {
 
 # displays the usage
 abchelp() {
-    echo -e "abc v0.1\nUsage : abc [new|init|build|run|test]"
+    echo -e "abc v0.1\nUsage : abc [new|init|build|check|run|test|help]"
 }
 
 # Parses args

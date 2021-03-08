@@ -24,6 +24,7 @@ chmod +x .local/bin/abc
 * Create a new project with `abc new <project_name>`
 * Initialize a project within a directory with `abc init`
 * Compile your code with `abc build` or `abc b`
+* Check for syntax errors with `abc check` or `abc c`
 * Execute your code with `abc run` or `abc r`
 * Run unit tests with `abc test` or `abc t`
 * Other commands: `abc help` 

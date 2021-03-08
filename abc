@@ -20,8 +20,8 @@ int main() {
 readonly makefile_content='# Compiler
 CC=gcc
 # Compiler flags
-CFLAGS=-g -Wall -Wextra
-LDLIBS=-lm
+override CFLAGS+=-g -Wall -Wextra
+override LDLIBS+=-lm
 # Final executable name 
 EXE=main
 # source code directory
@@ -29,7 +29,7 @@ SRC=./src
 # objects files and executable directory
 BIN=./bin
 # possible directories where header files could be
-HEADERS=-I./src
+override HEADERS+=-I./src
 # c files to compile 
 SOURCES=$(shell find src -name "*".c)
 # object files names
@@ -45,7 +45,7 @@ $(BIN)/%.o: src/%.c
 \tmkdir -p $(dir $@)
 \t$(CC) -c $(CFLAGS) $< -o $@ $(LDLIBS)
 
-# shorcut to add compilation flags
+# shortcut to add compilation flags
 obj: $(OBJECTS)
 
 # compiles to an executable a source file in the source directory, except for the main one
@@ -270,41 +270,21 @@ abchelp() {
 # TODO: Add a `cargo check` style command
 case $1 in
     "new") 
-        shift
-        abcnew "$@" 
-        ;;
+        shift && abcnew "$@" ;;
     "init")
-        abcinit
-        ;;
+        abcinit ;;
     "build" | "b")
-        abcexists
-        shift
-        abcbuild "$@"
-        ;;
+        abcexists; shift; abcbuild "$@" ;;
     "check" | "c")
-        abcexists
-        shift
-        abccheck "$@"
-        ;;
+        abcexists; shift; abccheck "$@" ;;
     "clean")
-        abcexists
-        abcclean
-        ;;
+        abcexists; abcclean ;;
     "run" | "r" )
-        abcexists
-        shift
-        abcrun
-        ;;
+        abcexists; shift; abcrun ;;
     "test" | "t" )
-        abcexists
-        shift
-        abctest "$@"
-        ;;
+        abcexists; shift; abctest "$@" ;;
     "help" | "-h" | "--help")
-        abchelp
-        ;;
+        abchelp ;;
     *)
-        echo "Invalid command"
-        abchelp
-        ;;
+        echo "Invalid command"; abchelp ;;
 esac

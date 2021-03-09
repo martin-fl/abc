@@ -6,6 +6,8 @@
 # MIT Licence
 #----------------------------------------------
 
+set -eou pipefail
+
 # initial content in src/main.c
 readonly mainfile_content='#include <stdio.h>
 
@@ -95,6 +97,7 @@ print_step() {
 
 # creates a new abc project
 # TODO: support library creation ?
+# TODO: initialize a git repo
 abcnew() {
     if [[ -z $1 ]]; then
         error "no project name given"
@@ -131,7 +134,10 @@ abcinit() {
 
 # checks if project exists
 abcexists() {
-    [[ ! -e $config_file ]] && error "abc project doesn't exist" && exit
+    if [[ ! -e $config_file ]]; then 
+        error "abc project doesn't exist"
+        exit 
+    fi
 }
 
 
@@ -210,7 +216,7 @@ abctest() {
 
             potential_file=${potential_file%.c}
             ntest_here=$(echo "$test_fns" | wc -l)
-            (( ntest += ntest_here ))
+            (( ntest += ntest_here )) || true
 
             # building the main function
             {
@@ -243,8 +249,11 @@ abctest() {
 
             make -s bin/"$potential_file".tst CFLAGS+="-D TEST"
 
+            # unset -e as we use non-zero exit codes to emit data
+            set +e
             ./bin/"$potential_file".tst
             (( passed += $? ))
+            set -e
 
             # restoring code and removing object file to not interfere with the rest of the program
             mv src/"$potential_file".c.abc_back src/"$potential_file".c

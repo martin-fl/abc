@@ -267,7 +267,6 @@ abchelp() {
 }
 
 # Parses args
-# TODO: Add a `cargo check` style command
 case $1 in
     "new") 
         shift && abcnew "$@" ;;

@@ -97,7 +97,6 @@ print_step() {
 
 # creates a new abc project
 # TODO: support library creation ?
-# TODO: initialize a git repo
 abcnew() {
     if [[ -z $1 ]]; then
         error "no project name given"
@@ -113,6 +112,13 @@ abcnew() {
     printf "%s" "$project_name" > "$project_name"/$config_file
     printf "%s" "$mainfile_content" > "$project_name"/src/main.c
     echo -e "$makefile_content" > "$project_name"/Makefile
+    printf '#%s' "$project_name" > "$project_name"/README.md
+
+    cd "$project_name" 
+    git init 
+    printf './bin' >> .gitignore
+    cd ..
+
     print_step "Created $project_name package"
 }
 
@@ -125,9 +131,12 @@ abcinit() {
 
     echo "${PWD##*/}" > $config_file
 
+    set +e
     [[ ! -e Makefile ]] && printf '%s' "$makefile_content" > Makefile
     [[ ! -e src ]] && mkdir src && echo -e "$mainfile_content" > src/main.c
     [[ ! -e bin ]] && mkdir bin 
+    [[ ! -e README.md ]] && printf '#%s' "$project_name" > /README.md
+    set -e
 
     print_step "Created $project_name package"
 }
@@ -249,7 +258,7 @@ abctest() {
 
             make -s bin/"$potential_file".tst CFLAGS+="-D TEST"
 
-            # unset -e as we use non-zero exit codes to emit data
+            # unset -e for a moment as we use non-zero exit codes to emit data
             set +e
             ./bin/"$potential_file".tst
             (( passed += $? ))
@@ -272,7 +281,7 @@ abctest() {
 
 # displays the usage
 abchelp() {
-    echo -e "abc v0.1\nUsage : abc [new|init|build|check|run|test|help]"
+    printf "abc beta\nUsage : abc [new|init|build|check|run|test|help]\n"
 }
 
 # Parses args
